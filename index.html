@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>因式分解拆彈大師</title>
+    <style>
+        body {
+            font-family: 'Trebuchet MS', 'Microsoft JhengHei', sans-serif;
+            background: radial-gradient(ellipse at top, #254664, #101b2d 75%);
+            margin: 0;
+            overflow: hidden; /* 防止滾動 */
+            touch-action: none; /* 防止手機上的手勢干擾 */
+        }
+        
+        #game-container {
+            width: min(1180px, 100%);
+            margin: 0 auto;
+            position: relative;
+            height: 100vh;
+            height: 100dvh;
+            background: #315b46;
+            border: 8px solid #34465b;
+            box-sizing: border-box;
+            box-shadow: 0 0 0 2px #60748b, 0 20px 70px #0009;
+            display: flex;
+            flex-direction: column;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            flex: 1 1 0;
+            min-height: 0;
+        }
+
+        button { font: inherit; cursor: pointer; }
+        *, *::before, *::after { box-sizing: border-box; }
+        .game-hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+            pointer-events: none;
+            gap: 10px;
+            padding: 18px;
+        }
+        .game-hud > div {
+            background: #18283eed;
+            border: 2px solid #60748b;
+            border-radius: 24px;
+            padding: 10px 18px;
+            box-shadow: 0 4px 0 #0c1626;
+            font-size: 23px;
+            font-weight: bold;
+        }
+        .game-hud > div:first-child span { color: #f8fafc; }
+        .game-hud #score { color: #ffe078; }
+        #btn-sound {
+            pointer-events: auto;
+            border: 2px solid #60748b;
+            border-radius: 24px;
+            padding: 10px 14px;
+            background: #18283e;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .answer-panel {
+            flex-shrink: 0;
+            min-height: 138px;
+            z-index: 10;
+            border-top: 4px solid;
+            background: #192b42 !important;
+            border-color: #91c95f !important;
+            border-radius: 0 !important;
+            padding: 18px 24px 22px !important;
+        }
+        .answer-panel > div:first-child {
+            color: #c4dfb3;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            line-height: 1.7;
+        }
+        #target-equation { background: #30465c; color: #fff; padding: 5px 12px; border-radius: 8px; font-size: 21px; }
+        #answer-buttons-container { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        #answer-buttons-container > div { grid-column: 1 / -1; text-align: center; color: #c4dfb3; padding: 12px; }
+        .btn-answer {
+            background: #b5e77c;
+            color: #223925;
+            border: 2px solid #d5f6a8;
+            border-radius: 12px;
+            padding: 13px 8px;
+            width: 100%;
+            font-size: 22px;
+            font-weight: bold;
+        }
+        .btn-answer:hover { background: #cef69e; }
+        #start-screen, #game-over-screen {
+            position: absolute;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #start-screen {
+            background: #0d1b2d78;
+            color: #fff;
+        }
+        #start-screen > div {
+            width: 100%;
+            max-width: 510px;
+            padding: 38px;
+            text-align: center;
+            border-radius: 28px;
+            background: #17283ef2;
+            border: 3px solid #91c95f;
+            box-shadow: 0 10px 0 #0b1728, 0 24px 60px #0007;
+        }
+        #start-screen h1 { font-size: clamp(30px, 4vw, 46px); margin: 0 0 14px; }
+        #start-screen h2 { font-size: 25px; color: #ffe078; margin: 0 0 24px; }
+        #start-screen p { font-size: 18px; line-height: 1.8; background: #0b172877; padding: 16px; border-radius: 14px; margin: 0 0 28px; }
+        #btn-start, #btn-restart {
+            width: 100%;
+            border: 0;
+            border-radius: 14px;
+            padding: 16px;
+            background: #ffd45e;
+            color: #493613;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 6px 0 #a77629;
+        }
+        #btn-start:hover, #btn-restart:hover { background: #ffe48b; }
+        #btn-start:active, #btn-restart:active { transform: translateY(4px); box-shadow: 0 2px 0 #a77629; }
+        #game-over-screen { background: #0b1728c9; }
+        #game-over-screen > div { width: 100%; max-width: 420px; background: #f8fafc; border-radius: 28px; padding: 32px; text-align: center; }
+        #game-over-screen h1 { color: #e44e36; font-size: 46px; margin: 0 0 10px; }
+        #game-over-screen h2 { color: #263d55; font-size: 25px; margin: 0 0 24px; }
+        #game-over-screen p { color: #526478; font-size: 20px; margin: 0 0 28px; }
+        #final-score { color: #2672bd; font-size: 30px; font-weight: bold; }
+        @media (max-width: 639px) {
+            #game-container { border-width: 4px; }
+            .game-hud { padding: 10px !important; gap: 6px; }
+            .game-hud > div { padding: 8px 10px; }
+            .game-hud span { font-size: 18px; }
+            #btn-sound { padding: 8px; font-size: 13px; }
+            .answer-panel { min-height: 232px; padding: 12px 16px 18px !important; }
+            #answer-buttons-container { grid-template-columns: 1fr; gap: 8px; }
+            .btn-answer { padding: 8px; font-size: 18px; }
+            #start-screen > div { padding: 24px; }
+        }
+
+        .btn-answer {
+            transition: all 0.1s ease-in-out;
+            box-shadow: 0 6px 0 #517837; /* 打造立體按鈕感 */
+        }
+        
+        .btn-answer:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #517837;
+        }
+
+        /* 震動特效，用於答錯或炸彈落地時 */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake-screen {
+            animation: shake 0.4s;
+        }
+
+        /* 隱藏元素用 */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- 頂部資訊列 -->
+    <div class="game-hud absolute top-0 left-0 w-full p-4 flex justify-between items-center z-10 pointer-events-none">
+        <div class="bg-white/80 rounded-full px-4 py-2 shadow-lg backdrop-blur-sm border-2 border-white">
+            <span class="text-2xl font-bold text-slate-700">分數: <span id="score" class="text-blue-600">0</span></span>
+        </div>
+        <div class="bg-white/80 rounded-full px-4 py-2 shadow-lg backdrop-blur-sm border-2 border-white">
+            <span id="lives" class="text-2xl tracking-widest">❤️❤️❤️</span>
+        </div>
+        <button id="btn-sound" type="button" aria-pressed="true" aria-label="關閉音效">🔊 音效開</button>
+    </div>
+
+    <!-- 遊戲結束畫面 -->
+    <div id="game-over-screen" class="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-[90%] text-center shadow-2xl transform transition-transform scale-100">
+            <h1 class="text-4xl font-bold text-red-500 mb-2">BOOM!</h1>
+            <h2 class="text-2xl font-semibold text-slate-700 mb-6">競技場守衛失敗</h2>
+            <p class="text-xl mb-6 text-slate-600">最終分數: <span id="final-score" class="font-bold text-blue-600 text-3xl">0</span></p>
+            <button id="btn-restart" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl text-xl shadow-[0_6px_0_#2563eb] active:shadow-[0_2px_0_#2563eb] active:translate-y-[4px] transition-all">
+                再玩一次 🎮
+            </button>
+        </div>
+    </div>
+    
+    <!-- 開始畫面 -->
+    <div id="start-screen" class="absolute inset-0 bg-blue-400 flex flex-col items-center justify-center z-50 text-white">
+        <div class="bg-white/10 p-8 rounded-3xl backdrop-blur-md border border-white/30 text-center max-w-sm w-[90%] shadow-xl">
+            <h1 class="text-4xl font-bold mb-4 drop-shadow-md">💣 拆彈大師</h1>
+            <h2 class="text-2xl font-semibold mb-6 text-yellow-300 drop-shadow-md">因式分解挑戰</h2>
+            <p class="mb-8 text-lg opacity-90 font-medium bg-black/20 p-4 rounded-xl">
+                解出最下方炸彈的公因式來解除引信！<br>守住競技場，不要讓炸彈落地！
+            </p>
+            <button id="btn-start" class="w-full bg-yellow-400 hover:bg-yellow-500 text-amber-900 font-bold py-4 rounded-2xl text-2xl shadow-[0_6px_0_#b45309] active:shadow-[0_2px_0_#b45309] active:translate-y-[4px] transition-all">
+                開始拆彈！
+            </button>
+        </div>
+    </div>
+
+    <!-- 遊戲畫布 -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- 底部解答操作區 -->
+    <div class="answer-panel bg-teal-500 p-4 rounded-t-3xl shadow-[0_-10px_20px_rgba(0,0,0,0.1)] z-10 border-t-4 border-teal-400">
+        <div class="text-center text-teal-100 font-semibold mb-3 text-lg drop-shadow-sm">
+            目標：<span id="target-equation" class="text-white font-bold bg-teal-600/50 px-3 py-1 rounded-lg text-xl tracking-wider">等待中...</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" id="answer-buttons-container">
+            <!-- 按鈕由 JS 動態生成 -->
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const scoreEl = document.getElementById('score');
+    const livesEl = document.getElementById('lives');
+    const targetEqEl = document.getElementById('target-equation');
+    const buttonsContainer = document.getElementById('answer-buttons-container');
+    const gameContainer = document.getElementById('game-container');
+    const startScreen = document.getElementById('start-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const finalScoreEl = document.getElementById('final-score');
+    const btnStart = document.getElementById('btn-start');
+    const btnRestart = document.getElementById('btn-restart');
+    const btnSound = document.getElementById('btn-sound');
+    const arenaCanvas = document.createElement('canvas');
+    let audioContext;
+    let soundEnabled = true;
+
+    // 在玩家按開始後啟用音訊，符合瀏覽器的播放規則。
+    function enableAudio() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        if (!audioContext) audioContext = new AudioContextClass();
+        if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    }
+
+    function playExplosion(type) {
+        if (!soundEnabled || !audioContext || audioContext.state !== 'running') return;
+        const now = audioContext.currentTime;
+        const duration = type === 'good' ? 0.28 : 0.65;
+        const buffer = audioContext.createBuffer(1, Math.ceil(audioContext.sampleRate * duration), audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+        const noise = audioContext.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(type === 'good' ? 2600 : 1800, now);
+        filter.frequency.exponentialRampToValueAtTime(100, now + duration);
+        const gain = audioContext.createGain();
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.exponentialRampToValueAtTime(type === 'good' ? 0.22 : 0.42, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        noise.connect(filter).connect(gain).connect(audioContext.destination);
+        noise.start(now);
+        noise.stop(now + duration);
+
+        const boom = audioContext.createOscillator();
+        const bassGain = audioContext.createGain();
+        boom.frequency.setValueAtTime(type === 'good' ? 170 : 110, now);
+        boom.frequency.exponentialRampToValueAtTime(35, now + duration);
+        bassGain.gain.setValueAtTime(0.001, now);
+        bassGain.gain.exponentialRampToValueAtTime(0.3, now + 0.01);
+        bassGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        boom.connect(bassGain).connect(audioContext.destination);
+        boom.start(now);
+        boom.stop(now + duration);
+    }
+
+    btnSound.addEventListener('click', () => {
+        soundEnabled = !soundEnabled;
+        btnSound.textContent = soundEnabled ? '🔊 音效開' : '🔇 音效關';
+        btnSound.setAttribute('aria-pressed', String(soundEnabled));
+        btnSound.setAttribute('aria-label', soundEnabled ? '關閉音效' : '開啟音效');
+        if (soundEnabled) enableAudio();
+    });
+
+    // Game State
+    let isPlaying = false;
+    let score = 0;
+    let lives = 3;
+    let bombs = [];
+    let particles = [];
+    let texts = []; // 漂浮文字特效
+    let targetBomb = null;
+    let animationId;
+    let spawnTimer = 0;
+    
+    // Difficulty progression
+    let spawnRate = 180; // frames between spawns
+    let baseFallSpeed = 0.5;
+
+    // Resize canvas to fit container properly
+    function resizeCanvas() {
+        // We set the canvas to its actual displayed width/height for sharp rendering
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        bombs.forEach(bomb => {
+            bomb.x = Math.max(bomb.radius + 8, Math.min(canvas.width - bomb.radius - 8, bomb.x));
+        });
+        buildArenaBackground();
+        drawBackground();
+    }
+    window.addEventListener('resize', resizeCanvas);
+    new ResizeObserver(resizeCanvas).observe(canvas);
+
+    // 產生因式分解題目
+    function generateProblem() {
+        const types = [0, 1]; // 0: 數字公因式, 1: 變數公因式
+        const type = types[Math.floor(Math.random() * types.length)];
+        let text, correct, wrong1, wrong2;
+
+        if (type === 0) {
+            // ax + ab -> a(x+b)
+            const a = Math.floor(Math.random() * 8) + 2; // 2~9
+            const b = Math.floor(Math.random() * 8) + 1; // 1~8
+            const op = Math.random() > 0.5 ? '+' : '-';
+            const ab = a * b;
+            text = `${a}x ${op} ${ab}`;
+            correct = `${a}(x ${op} ${b})`;
+            
+            wrong1 = `${a}(x ${op} ${ab})`;
+            wrong2 = `${ab}(x ${op} ${b})`;
+            
+            // 避免重複
+            if (wrong1 === correct) wrong1 = `${a+1}(x ${op} ${b})`;
+            if (wrong2 === correct) wrong2 = `${a}(x ${op === '+' ? '-' : '+'} ${b})`;
+            if (wrong1 === wrong2) wrong2 = `${a+2}(x ${op} ${b})`;
+
+        } else {
+            // x^2 + cx -> x(x+c)
+            const c = Math.floor(Math.random() * 8) + 2; // 2~9
+            const op = Math.random() > 0.5 ? '+' : '-';
+            text = `x² ${op} ${c}x`;
+            correct = `x(x ${op} ${c})`;
+            
+            wrong1 = `x(x² ${op} ${c})`;
+            wrong2 = `${c}(x ${op} x)`;
+            if (wrong1 === wrong2) wrong1 = `x²(x ${op} ${c})`;
+        }
+
+        let options = [correct, wrong1, wrong2];
+        // 打亂選項順序 (Fisher-Yates shuffle)
+        for (let i = options.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [options[i], options[j]] = [options[j], options[i]];
+        }
+
+        return { text, correct, options };
+    }
+
+    class Bomb {
+        constructor() {
+            this.radius = 35;
+            this.x = Math.random() * (canvas.width - this.radius * 2.5) + this.radius * 1.25;
+            this.y = -this.radius;
+            // 根據分數微調下落速度，增加挑戰性
+            this.speed = baseFallSpeed + (Math.random() * 0.5) + (score * 0.015);
+            
+            const problem = generateProblem();
+            this.equation = problem.text;
+            this.correctAnswer = problem.correct;
+            this.options = problem.options;
+            
+            this.fuseTimer = Math.random() * Math.PI * 2; // 為了引信火花閃爍的隨機相位
+        }
+
+        draw(ctx, isTarget) {
+            // 如果是目標炸彈，畫一個發光的紅/橘色外圈
+            if (isTarget) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + 6, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 100, 0, 0.4)';
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                ctx.stroke();
+            }
+
+            // 炸彈本體 (黑色圓形)
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#111';
+            ctx.fill();
+            
+            // 炸彈高光 (立體感)
+            ctx.beginPath();
+            ctx.arc(this.x - 10, this.y - 10, this.radius / 3, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.fill();
+
+            // 炸彈蓋子 (頂部小矩形)
+            ctx.fillStyle = '#555';
+            ctx.fillRect(this.x - 8, this.y - this.radius - 6, 16, 8);
+
+            // 引信 (曲線)
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y - this.radius - 6);
+            ctx.quadraticCurveTo(this.x + 15, this.y - this.radius - 20, this.x + 20, this.y - this.radius - 25);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#a3a3a3';
+            ctx.stroke();
+
+            // 引信火花
+            this.fuseTimer += 0.2;
+            const sparkRadius = 3 + Math.sin(this.fuseTimer) * 1.5;
+            ctx.beginPath();
+            ctx.arc(this.x + 20, this.y - this.radius - 25, sparkRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#fbbf24'; // Amber-400
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(this.x + 20, this.y - this.radius - 25, sparkRadius/2, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+
+            // 多項式文字
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 18px Fredoka, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.equation, this.x, this.y);
+        }
+
+        update() {
+            this.y += this.speed;
+        }
+    }
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x;
+            this.y = y;
+            this.color = color;
+            this.radius = Math.random() * 4 + 2;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 5 + 2;
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+            this.life = 1.0;
+            this.decay = Math.random() * 0.03 + 0.02;
+        }
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.vy += 0.1; // 重力
+            this.life -= this.decay;
+        }
+        draw(ctx) {
+            ctx.globalAlpha = this.life;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    class FloatingText {
+        constructor(x, y, text, color) {
+            this.x = x;
+            this.y = y;
+            this.text = text;
+            this.color = color;
+            this.life = 1.0;
+            this.vy = -2; // 向上漂浮
+        }
+        update() {
+            this.y += this.vy;
+            this.life -= 0.02;
+        }
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.fillStyle = this.color;
+            ctx.font = 'bold 24px Fredoka, sans-serif';
+            ctx.textAlign = 'center';
+            // 加上黑邊讓文字更清楚
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 3;
+            ctx.strokeText(this.text, this.x, this.y);
+            ctx.fillText(this.text, this.x, this.y);
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    function updateUI() {
+        scoreEl.innerText = score;
+        livesEl.innerText = '❤️'.repeat(Math.max(0, lives));
+        
+        // 找出最接近地面的炸彈作為目標
+        if (bombs.length > 0) {
+            targetBomb = bombs.reduce((lowest, current) => (current.y > lowest.y) ? current : lowest);
+            targetEqEl.innerText = targetBomb.equation;
+            
+            // 更新按鈕，但只有當選項真的改變時才重繪，避免按鈕閃爍干擾點擊
+            const currentOptions = Array.from(buttonsContainer.children).map(btn => btn.innerText);
+            const newOptions = targetBomb.options;
+            
+            if (currentOptions.join() !== newOptions.join()) {
+                buttonsContainer.innerHTML = '';
+                newOptions.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-answer bg-teal-400 hover:bg-teal-300 text-teal-900 font-bold py-3 px-2 rounded-xl text-xl w-full flex items-center justify-center';
+                    btn.innerText = opt;
+                    // 防止觸控裝置上的預設放大行為
+                    btn.addEventListener('touchstart', (e) => { e.preventDefault(); handleAnswer(opt); }, {passive: false});
+                    btn.addEventListener('mousedown', (e) => { e.preventDefault(); handleAnswer(opt); });
+                    buttonsContainer.appendChild(btn);
+                });
+            }
+        } else {
+            targetBomb = null;
+            targetEqEl.innerText = "安全！";
+            buttonsContainer.innerHTML = '';
+            const msg = document.createElement('div');
+            msg.className = 'col-span-full text-center text-teal-100 italic py-3';
+            msg.innerText = "等待下一波炸彈...";
+            buttonsContainer.appendChild(msg);
+        }
+    }
+
+    function createExplosion(x, y, type) {
+        playExplosion(type);
+        const colors = type === 'good' ? ['#facc15', '#4ade80', '#60a5fa', '#fff'] : ['#ef4444', '#f97316', '#111827'];
+        for (let i = 0; i < 30; i++) {
+            particles.push(new Particle(x, y, colors[Math.floor(Math.random() * colors.length)]));
+        }
+    }
+
+    function triggerShake() {
+        gameContainer.classList.remove('shake-screen');
+        void gameContainer.offsetWidth; // 觸發重繪 (Reflow) 以重啟動畫
+        gameContainer.classList.add('shake-screen');
+    }
+
+    function handleAnswer(selectedOption) {
+        if (!isPlaying || !targetBomb) return;
+
+        if (selectedOption === targetBomb.correctAnswer) {
+            // 答對
+            createExplosion(targetBomb.x, targetBomb.y, 'good');
+            texts.push(new FloatingText(targetBomb.x, targetBomb.y, "+10", "#4ade80")); // Green
+            score += 10;
+            
+            // 隨著分數提高，微調難度
+            if (score % 50 === 0 && spawnRate > 60) {
+                spawnRate -= 10;
+            }
+        } else {
+            // 答錯
+            createExplosion(targetBomb.x, targetBomb.y, 'bad');
+            texts.push(new FloatingText(targetBomb.x, targetBomb.y, "錯誤!", "#ef4444")); // Red
+            lives -= 1;
+            triggerShake();
+        }
+
+        // 移除被處理的炸彈
+        bombs = bombs.filter(b => b !== targetBomb);
+        
+        checkGameOver();
+        updateUI();
+    }
+
+    function checkGameOver() {
+        if (lives <= 0) {
+            isPlaying = false;
+            finalScoreEl.innerText = score;
+            gameOverScreen.classList.remove('hidden');
+        }
+    }
+
+    // 快取格磚競技場；石牆與磚箱是裝飾，不改變炸彈下落玩法。
+    function buildArenaBackground() {
+        arenaCanvas.width = canvas.width;
+        arenaCanvas.height = canvas.height;
+        const bg = arenaCanvas.getContext('2d');
+        const columns = canvas.width < 640 ? 9 : 17;
+        const tile = canvas.width / columns;
+        const rows = Math.ceil(canvas.height / tile);
+        bg.fillStyle = '#32634a';
+        bg.fillRect(0, 0, canvas.width, canvas.height);
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < columns; col++) {
+                const x = col * tile;
+                const y = row * tile;
+                bg.fillStyle = (row + col) % 2 ? '#3d7351' : '#477f58';
+                bg.fillRect(x + 1, y + 1, tile - 2, tile - 2);
+                bg.fillStyle = '#ffffff09';
+                bg.fillRect(x + 3, y + 3, tile - 6, 3);
+                const wall = col === 0 || col === columns - 1 || (row > 1 && row % 2 === 0 && col % 2 === 0);
+                const brick = !wall && row > 1 && (col * 7 + row * 3) % 11 < 2;
+                if (!wall && !brick) continue;
+                bg.fillStyle = '#152a32aa';
+                bg.fillRect(x + 5, y + 9, tile - 7, tile - 7);
+                bg.fillStyle = wall ? '#506674' : '#8b6647';
+                bg.fillRect(x + 3, y + 3, tile - 7, tile - 9);
+                bg.fillStyle = wall ? '#84969b' : '#ba9162';
+                bg.fillRect(x + 3, y + 3, tile - 7, 6);
+                bg.fillRect(x + 3, y + 3, 5, tile - 9);
+                bg.strokeStyle = wall ? '#384e5c' : '#624b38';
+                bg.lineWidth = 2;
+                if (wall) {
+                    bg.strokeRect(x + 10, y + 13, tile - 22, tile - 25);
+                } else {
+                    for (let line = 1; line < 3; line++) {
+                        const brickY = y + 3 + line * (tile - 9) / 3;
+                        bg.beginPath();
+                        bg.moveTo(x + 4, brickY);
+                        bg.lineTo(x + tile - 5, brickY);
+                        bg.moveTo(x + tile * (line === 1 ? 0.35 : 0.65), brickY);
+                        bg.lineTo(x + tile * (line === 1 ? 0.35 : 0.65), brickY - (tile - 9) / 3);
+                        bg.stroke();
+                    }
+                }
+            }
+        }
+        // 底部警戒線對應炸彈的落地判定。
+        bg.fillStyle = '#17283e';
+        bg.fillRect(0, canvas.height - 40, canvas.width, 40);
+        for (let x = 0; x < canvas.width; x += 32) {
+            bg.fillStyle = '#e7be54';
+            bg.beginPath();
+            bg.moveTo(x, canvas.height - 40);
+            bg.lineTo(x + 16, canvas.height - 40);
+            bg.lineTo(x, canvas.height - 28);
+            bg.lineTo(x - 16, canvas.height - 28);
+            bg.fill();
+        }
+        bg.fillStyle = '#c4dfb3';
+        bg.font = 'bold 12px sans-serif';
+        bg.textAlign = 'center';
+        bg.fillText('⚠  守住防線 · 解除引信  ⚠', canvas.width / 2, canvas.height - 9);
+    }
+
+    function drawBackground() {
+        ctx.drawImage(arenaCanvas, 0, 0);
+    }
+
+    function gameLoop() {
+        if (!isPlaying) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        drawBackground();
+
+        // 生成炸彈
+        spawnTimer++;
+        if (spawnTimer >= spawnRate) {
+            bombs.push(new Bomb());
+            spawnTimer = 0;
+            updateUI(); // 更新UI以防這是第一顆炸彈
+        }
+
+        // 確保畫面中至少有一顆炸彈
+        if (bombs.length === 0) {
+            bombs.push(new Bomb());
+            spawnTimer = 0;
+            updateUI();
+        }
+
+        // 更新與繪製炸彈
+        for (let i = bombs.length - 1; i >= 0; i--) {
+            let b = bombs[i];
+            b.update();
+            b.draw(ctx, b === targetBomb);
+
+            // 檢查是否落地 (炸彈碰到競技場警戒線)
+            if (b.y + b.radius >= canvas.height - 40) {
+                createExplosion(b.x, b.y, 'bad');
+                texts.push(new FloatingText(b.x, b.y - 20, "BOOM!", "#ef4444"));
+                bombs.splice(i, 1);
+                lives -= 1;
+                triggerShake();
+                checkGameOver();
+                updateUI(); // 重新尋找目標
+            }
+        }
+
+        // 更新與繪製粒子
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.update();
+            p.draw(ctx);
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+
+        // 更新與繪製漂浮文字
+        for (let i = texts.length - 1; i >= 0; i--) {
+            let t = texts[i];
+            t.update();
+            t.draw(ctx);
+            if (t.life <= 0) texts.splice(i, 1);
+        }
+
+        // 這裡不需要一直呼叫 updateUI，只在炸彈陣列改變時呼叫以節省效能
+        // 但為了確保目標炸彈的發光效果即時更新，在 draw 階段已處理
+
+        animationId = requestAnimationFrame(gameLoop);
+    }
+
+    function startGame() {
+        enableAudio();
+        resizeCanvas();
+        isPlaying = true;
+        score = 0;
+        lives = 3;
+        bombs = [];
+        particles = [];
+        texts = [];
+        spawnRate = 180;
+        spawnTimer = 170; // 讓第一顆炸彈快點出來
+        
+        startScreen.classList.add('hidden');
+        gameOverScreen.classList.add('hidden');
+        
+        updateUI();
+        cancelAnimationFrame(animationId);
+        gameLoop();
+    }
+
+    btnStart.addEventListener('click', startGame);
+    btnRestart.addEventListener('click', startGame);
+
+    // Initial setup
+    resizeCanvas();
+
+</script>
+</body>
+</html>
